@@ -52,8 +52,8 @@ jeti/
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/jeti-sdk-wrapper.git
-cd jeti-sdk-wrapper
+git clone https://github.com/theopjl/IXR-Jeti-SDK-Wrapper
+cd IXR-Jeti-SDK-Wrapper
 
 # Install in development mode
 pip install -e ".[dev]"
