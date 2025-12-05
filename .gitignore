@@ -160,6 +160,7 @@ Thumbs.db
 # PDF documentation (too large for git, keep locally)
 *.pdf
 
+scb-2501-uv.txt
 # Keep the old files that are being replaced (for reference during transition)
 # These should be removed after migration is complete
 # jeti_wrapper.py  # Old location - now in src/jeti/wrapper.py
