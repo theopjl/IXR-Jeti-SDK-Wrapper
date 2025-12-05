@@ -2,6 +2,7 @@
 
 **Date:** 2025-12-05  
 **Tester:** Théo Poujol
+**Device:** SCV-1511-NIR
 **Document:** Analysis of Python wrapper implementation for Jeti C SDK
 
 ---
