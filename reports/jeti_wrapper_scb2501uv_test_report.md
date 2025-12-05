@@ -1,7 +1,7 @@
 # Jeti Spectroradiometer Python Wrapper - SCB-2501-UV Test Results Report
 
 **Date:** 2025-12-05  
-**Tester:** tpjl-ujm  
+**Tester:** Théo Poujol
 **Device:** SCB-2501-UV  
 **Document:** Comprehensive analysis of Python wrapper implementation for Jeti C SDK
 
