@@ -3,13 +3,12 @@ JETI Dual Device Comparison Analysis
 Compares two single-device measurement files
 
 Reads two CSV files from measure.py and performs
-comprehensive intensity comparison analysis.
+data dispersion analysis.
 
 Calculates:
-- Spectral intensity differences
-- Per-sample and per-wavelength statistics
-- Correlation analysis
-- Statistical summaries
+- Mean and standard deviation of absolute differences
+- Mean and standard deviation of relative differences
+- Mean and standard deviation of device intensities
 """
 
 import sys
@@ -134,135 +133,43 @@ def validate_compatibility(data1: Dict, data2: Dict) -> None:
 
 def analyze_data(data1: Dict, data2: Dict) -> Dict:
     """
-    Perform comprehensive intensity comparison analysis between two measurement files
+    Perform data dispersion analysis between two measurement files
     
     Args:
         data1, data2: Data dictionaries from read_measurement_file
         
     Returns:
-        Dictionary with all analysis results
+        Dictionary with dispersion statistics (mean and std dev)
     """
-    print("\nAnalyzing intensity data...")
+    print("\nAnalyzing data dispersion...")
     
     intensity1 = np.array(data1['intensity_data'])  # [wavelength][sample]
     intensity2 = np.array(data2['intensity_data'])
-    wavelengths = data1['wavelengths']
-    num_samples = data1['metadata']['num_samples']
-    num_wavelengths = len(wavelengths)
     
+    # Calculate absolute and relative differences across all data points
+    abs_diff = intensity2 - intensity1
+    rel_diff = np.where(intensity1 != 0, (abs_diff / intensity1) * 100, 0)
+    
+    # Calculate dispersion statistics
     results = {
-        'per_sample': [],
-        'per_wavelength': [],
-        'statistics': {}
-    }
-    
-    # Per-sample analysis (comparing full spectra for each sample pair)
-    print("  - Computing per-sample statistics...")
-    for sample_idx in range(num_samples):
-        spectrum1 = intensity1[:, sample_idx]
-        spectrum2 = intensity2[:, sample_idx]
-        
-        # Absolute and relative differences
-        abs_diff = spectrum2 - spectrum1
-        rel_diff = np.where(spectrum1 != 0, (abs_diff / spectrum1) * 100, 0)
-        
-        # Correlation
-        correlation = np.corrcoef(spectrum1, spectrum2)[0, 1]
-        
-        # RMSE
-        rmse = np.sqrt(np.mean(abs_diff**2))
-        
-        # Mean absolute error
-        mae = np.mean(np.abs(abs_diff))
-        
-        # Peak intensity comparison
-        peak1 = np.max(spectrum1)
-        peak2 = np.max(spectrum2)
-        peak1_wl = wavelengths[np.argmax(spectrum1)]
-        peak2_wl = wavelengths[np.argmax(spectrum2)]
-        
-        sample_result = {
-            'sample': sample_idx + 1,
-            'correlation': correlation,
-            'rmse': rmse,
-            'mae': mae,
-            'mean_abs_diff': np.mean(abs_diff),
-            'mean_rel_diff': np.mean(rel_diff),
-            'std_abs_diff': np.std(abs_diff),
-            'std_rel_diff': np.std(rel_diff),
-            'max_abs_diff': np.max(np.abs(abs_diff)),
-            'max_rel_diff': np.max(np.abs(rel_diff)),
-            'peak1': peak1,
-            'peak2': peak2,
-            'peak_diff': peak2 - peak1,
-            'peak_diff_rel': ((peak2 - peak1) / peak1 * 100) if peak1 != 0 else 0,
-            'peak1_wavelength': peak1_wl,
-            'peak2_wavelength': peak2_wl
+        'dispersion': {
+            'absolute_difference': {
+                'mean': float(np.mean(abs_diff)),
+                'std': float(np.std(abs_diff))
+            },
+            'relative_difference_percent': {
+                'mean': float(np.mean(rel_diff)),
+                'std': float(np.std(rel_diff))
+            },
+            'device1_intensity': {
+                'mean': float(np.mean(intensity1)),
+                'std': float(np.std(intensity1))
+            },
+            'device2_intensity': {
+                'mean': float(np.mean(intensity2)),
+                'std': float(np.std(intensity2))
+            }
         }
-        
-        results['per_sample'].append(sample_result)
-    
-    # Per-wavelength analysis (comparing across samples for each wavelength)
-    print("  - Computing per-wavelength statistics...")
-    for wl_idx, wl in enumerate(wavelengths):
-        wl_intensities1 = intensity1[wl_idx, :]
-        wl_intensities2 = intensity2[wl_idx, :]
-        
-        abs_diff = wl_intensities2 - wl_intensities1
-        rel_diff = np.where(wl_intensities1 != 0, (abs_diff / wl_intensities1) * 100, 0)
-        
-        wl_result = {
-            'wavelength': wl,
-            'dev1_mean': np.mean(wl_intensities1),
-            'dev2_mean': np.mean(wl_intensities2),
-            'dev1_std': np.std(wl_intensities1),
-            'dev2_std': np.std(wl_intensities2),
-            'mean_abs_diff': np.mean(abs_diff),
-            'mean_rel_diff': np.mean(rel_diff),
-            'std_abs_diff': np.std(abs_diff),
-            'std_rel_diff': np.std(rel_diff)
-        }
-        
-        results['per_wavelength'].append(wl_result)
-    
-    # Overall statistics
-    print("  - Computing overall statistics...")
-    stats = results['statistics']
-    
-    # Sample-level statistics
-    stats['correlation'] = {
-        'mean': np.mean([r['correlation'] for r in results['per_sample']]),
-        'std': np.std([r['correlation'] for r in results['per_sample']]),
-        'min': np.min([r['correlation'] for r in results['per_sample']]),
-        'max': np.max([r['correlation'] for r in results['per_sample']])
-    }
-    
-    stats['rmse'] = {
-        'mean': np.mean([r['rmse'] for r in results['per_sample']]),
-        'std': np.std([r['rmse'] for r in results['per_sample']]),
-        'min': np.min([r['rmse'] for r in results['per_sample']]),
-        'max': np.max([r['rmse'] for r in results['per_sample']])
-    }
-    
-    stats['mae'] = {
-        'mean': np.mean([r['mae'] for r in results['per_sample']]),
-        'std': np.std([r['mae'] for r in results['per_sample']]),
-        'min': np.min([r['mae'] for r in results['per_sample']]),
-        'max': np.max([r['mae'] for r in results['per_sample']])
-    }
-    
-    stats['mean_rel_diff'] = {
-        'mean': np.mean([r['mean_rel_diff'] for r in results['per_sample']]),
-        'std': np.std([r['mean_rel_diff'] for r in results['per_sample']]),
-        'min': np.min([r['mean_rel_diff'] for r in results['per_sample']]),
-        'max': np.max([r['mean_rel_diff'] for r in results['per_sample']])
-    }
-    
-    stats['peak_diff_rel'] = {
-        'mean': np.mean([r['peak_diff_rel'] for r in results['per_sample']]),
-        'std': np.std([r['peak_diff_rel'] for r in results['per_sample']]),
-        'min': np.min([r['peak_diff_rel'] for r in results['per_sample']]),
-        'max': np.max([r['peak_diff_rel'] for r in results['per_sample']])
     }
     
     print("✓ Analysis complete!")
@@ -272,7 +179,7 @@ def analyze_data(data1: Dict, data2: Dict) -> Dict:
 
 def save_analysis_report(data1: Dict, data2: Dict, analysis: Dict, output_path: str):
     """
-    Save analysis report to CSV
+    Save simplified dispersion analysis report to CSV
     
     Args:
         data1, data2: Original data dictionaries
@@ -288,7 +195,7 @@ def save_analysis_report(data1: Dict, data2: Dict, analysis: Dict, output_path: 
         writer = csv.writer(f)
         
         # Header
-        writer.writerow(['JETI Dual Device Intensity Comparison Analysis Report'])
+        writer.writerow(['JETI Dual Device Data Dispersion Analysis'])
         writer.writerow(['Measurement Type', meta1['measurement_type']])
         writer.writerow(['Device 1 Serial', meta1['device_serial']])
         writer.writerow(['Device 2 Serial', meta2['device_serial']])
@@ -296,118 +203,29 @@ def save_analysis_report(data1: Dict, data2: Dict, analysis: Dict, output_path: 
         writer.writerow(['Wavelength Range', f"{meta1['wavelength_start']}-{meta1['wavelength_end']} nm"])
         writer.writerow([])
         
-        # Summary statistics
-        writer.writerow(['SUMMARY STATISTICS (Across All Samples)'])
+        # Dispersion statistics
+        writer.writerow(['DATA DISPERSION STATISTICS'])
         writer.writerow([])
-        writer.writerow(['Metric', 'Mean', 'Std Dev', 'Min', 'Max'])
+        writer.writerow(['Metric', 'Mean', 'Std Dev'])
         
-        stats = analysis['statistics']
-        writer.writerow(['Spectral Correlation', 
-                        f"{stats['correlation']['mean']:.6f}",
-                        f"{stats['correlation']['std']:.6f}",
-                        f"{stats['correlation']['min']:.6f}",
-                        f"{stats['correlation']['max']:.6f}"])
+        disp = analysis['dispersion']
         
-        writer.writerow(['RMSE (Root Mean Square Error)', 
-                        f"{stats['rmse']['mean']:.6E}",
-                        f"{stats['rmse']['std']:.6E}",
-                        f"{stats['rmse']['min']:.6E}",
-                        f"{stats['rmse']['max']:.6E}"])
+        writer.writerow(['Absolute Difference (Device2 - Device1)',
+                        f"{disp['absolute_difference']['mean']:.6E}",
+                        f"{disp['absolute_difference']['std']:.6E}"])
         
-        writer.writerow(['MAE (Mean Absolute Error)', 
-                        f"{stats['mae']['mean']:.6E}",
-                        f"{stats['mae']['std']:.6E}",
-                        f"{stats['mae']['min']:.6E}",
-                        f"{stats['mae']['max']:.6E}"])
-        
-        writer.writerow(['Mean Relative Difference (%)', 
-                        f"{stats['mean_rel_diff']['mean']:.3f}",
-                        f"{stats['mean_rel_diff']['std']:.3f}",
-                        f"{stats['mean_rel_diff']['min']:.3f}",
-                        f"{stats['mean_rel_diff']['max']:.3f}"])
-        
-        writer.writerow(['Peak Intensity Relative Diff (%)', 
-                        f"{stats['peak_diff_rel']['mean']:.3f}",
-                        f"{stats['peak_diff_rel']['std']:.3f}",
-                        f"{stats['peak_diff_rel']['min']:.3f}",
-                        f"{stats['peak_diff_rel']['max']:.3f}"])
+        writer.writerow(['Relative Difference (%)',
+                        f"{disp['relative_difference_percent']['mean']:.3f}",
+                        f"{disp['relative_difference_percent']['std']:.3f}"])
         
         writer.writerow([])
+        writer.writerow(['Device 1 Intensity',
+                        f"{disp['device1_intensity']['mean']:.6E}",
+                        f"{disp['device1_intensity']['std']:.6E}"])
         
-        # Per-sample comparison
-        writer.writerow(['PER-SAMPLE COMPARISON'])
-        writer.writerow([])
-        
-        header = ['Sample', 'Correlation', 'RMSE', 'MAE', 
-                 'Mean_Abs_Diff', 'Mean_Rel_Diff_%', 'Std_Abs_Diff', 'Std_Rel_Diff_%',
-                 'Max_Abs_Diff', 'Max_Rel_Diff_%',
-                 'Dev1_Peak', 'Dev2_Peak', 'Peak_Diff', 'Peak_Diff_%',
-                 'Dev1_Peak_WL_nm', 'Dev2_Peak_WL_nm']
-        writer.writerow(header)
-        
-        for result in analysis['per_sample']:
-            row = [
-                result['sample'],
-                f"{result['correlation']:.6f}",
-                f"{result['rmse']:.6E}",
-                f"{result['mae']:.6E}",
-                f"{result['mean_abs_diff']:.6E}",
-                f"{result['mean_rel_diff']:.3f}",
-                f"{result['std_abs_diff']:.6E}",
-                f"{result['std_rel_diff']:.3f}",
-                f"{result['max_abs_diff']:.6E}",
-                f"{result['max_rel_diff']:.3f}",
-                f"{result['peak1']:.6E}",
-                f"{result['peak2']:.6E}",
-                f"{result['peak_diff']:.6E}",
-                f"{result['peak_diff_rel']:.3f}",
-                f"{result['peak1_wavelength']:.1f}",
-                f"{result['peak2_wavelength']:.1f}"
-            ]
-            writer.writerow(row)
-        
-        writer.writerow([])
-        
-        # Per-wavelength statistics
-        writer.writerow(['PER-WAVELENGTH STATISTICS (Averaged Across Samples)'])
-        writer.writerow([])
-        
-        wl_header = ['Wavelength_nm', 
-                     'Dev1_Mean', 'Dev1_Std', 'Dev2_Mean', 'Dev2_Std',
-                     'Mean_Abs_Diff', 'Mean_Rel_Diff_%', 'Std_Abs_Diff', 'Std_Rel_Diff_%']
-        writer.writerow(wl_header)
-        
-        for wl_result in analysis['per_wavelength']:
-            row = [
-                f"{wl_result['wavelength']:.1f}",
-                f"{wl_result['dev1_mean']:.6E}",
-                f"{wl_result['dev1_std']:.6E}",
-                f"{wl_result['dev2_mean']:.6E}",
-                f"{wl_result['dev2_std']:.6E}",
-                f"{wl_result['mean_abs_diff']:.6E}",
-                f"{wl_result['mean_rel_diff']:.3f}",
-                f"{wl_result['std_abs_diff']:.6E}",
-                f"{wl_result['std_rel_diff']:.3f}"
-            ]
-            writer.writerow(row)
-        
-        writer.writerow([])
-        
-        # Detailed intensity differences per sample per wavelength
-        writer.writerow(['DETAILED INTENSITY DIFFERENCES (Device2 - Device1)'])
-        writer.writerow([])
-        
-        intensity1 = np.array(data1['intensity_data'])
-        intensity2 = np.array(data2['intensity_data'])
-        diff = intensity2 - intensity1
-        
-        diff_header = ['Wavelength_nm'] + [f'Sample_{i+1}_Diff' for i in range(meta1['num_samples'])]
-        writer.writerow(diff_header)
-        
-        for wl_idx, wl in enumerate(data1['wavelengths']):
-            row = [f"{wl:.1f}"] + [f"{diff[wl_idx, sample_idx]:.6E}" 
-                                   for sample_idx in range(meta1['num_samples'])]
-            writer.writerow(row)
+        writer.writerow(['Device 2 Intensity',
+                        f"{disp['device2_intensity']['mean']:.6E}",
+                        f"{disp['device2_intensity']['std']:.6E}"])
     
     print("✓ Report saved successfully!")
 
@@ -528,11 +346,11 @@ def main():
     # Print summary
     print("QUICK SUMMARY:")
     print("-" * 70)
-    stats = analysis['statistics']
-    print(f"Spectral correlation:      {stats['correlation']['mean']:.6f} ± {stats['correlation']['std']:.6f}")
-    print(f"RMSE:                      {stats['rmse']['mean']:.6E} ± {stats['rmse']['std']:.6E}")
-    print(f"Mean relative diff:        {stats['mean_rel_diff']['mean']:+.3f}% ± {stats['mean_rel_diff']['std']:.3f}%")
-    print(f"Peak intensity diff:       {stats['peak_diff_rel']['mean']:+.3f}% ± {stats['peak_diff_rel']['std']:.3f}%")
+    disp = analysis['dispersion']
+    print(f"Absolute difference:       {disp['absolute_difference']['mean']:.6E} ± {disp['absolute_difference']['std']:.6E}")
+    print(f"Relative difference:       {disp['relative_difference_percent']['mean']:+.3f}% ± {disp['relative_difference_percent']['std']:.3f}%")
+    print(f"Device 1 intensity:        {disp['device1_intensity']['mean']:.6E} ± {disp['device1_intensity']['std']:.6E}")
+    print(f"Device 2 intensity:        {disp['device2_intensity']['mean']:.6E} ± {disp['device2_intensity']['std']:.6E}")
     print()
 
 
